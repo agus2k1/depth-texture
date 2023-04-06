@@ -1,6 +1,8 @@
 const fragmentShader = /* glsl */ `
     #include <packing>
     varying vec2 vUv;
+    varying vec2 vUv1;
+    varying float vDepth;
     uniform float cameraNear;
     uniform float cameraFar;
     uniform sampler2D depthInfo;
@@ -13,10 +15,11 @@ const fragmentShader = /* glsl */ `
 	}
 
     void main() {
-        float depth = readDepth( depthInfo, vUv );
+        float depth = readDepth( depthInfo, vUv1 );
 
-        // gl_FragColor = vec4( vUv, 1., 1.);
-        gl_FragColor.rgb = 1.0 - vec3( depth );
+        float toMix = smoothstep(0.2, 1., vDepth);
+
+        gl_FragColor.rgb = mix(vec3(1, 0.9, 0.235), vec3(0., 0.001, 0.242), toMix);
 		gl_FragColor.a = 1.0;
     }
 `;
