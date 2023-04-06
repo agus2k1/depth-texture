@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import fragment from './shaders/fragment.glsl.js';
 import vertex from './shaders/vertex.glsl.js';
-import model from './models/skull.glb';
+import model from './models/face.glb';
 
 export default class Sketch {
   constructor() {
@@ -16,7 +16,7 @@ export default class Sketch {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.width, this.height);
-    this.renderer.setClearColor(0xeeeeee, 1);
+    // this.renderer.setClearColor(0xeeeeee, 1);
     this.renderer.useLegacyLights = true;
     // this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.container.appendChild(this.renderer.domElement);
@@ -24,24 +24,20 @@ export default class Sketch {
     this.camera = new THREE.PerspectiveCamera(
       70,
       window.innerWidth / window.innerHeight,
-      1.5,
-      3
+      0.01,
+      5
     );
 
     this.postCamera = new THREE.PerspectiveCamera(
       70,
       window.innerWidth / window.innerHeight,
-      0.01,
-      5
+      2,
+      4
     );
 
     this.camera.position.set(0, 0, 2);
     this.postCamera.position.set(0, 0, 2);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls = new OrbitControls(
-      this.postCamera,
-      this.renderer.domElement
-    );
 
     this.time = 0;
 
@@ -97,15 +93,15 @@ export default class Sketch {
   loadModel() {
     this.loader = new GLTFLoader();
     this.loader.load(model, (gltf) => {
-      let scale = 1;
+      let scale = 0.1;
       this.model = gltf.scene.children[0];
-      this.model.scale.set(scale, scale, scale);
-      this.model.position.set(0, 0, -1.8);
+      this.model.scale.set(scale * 1.8, scale, scale);
+      this.model.position.set(0, 0, -1.5);
 
       this.model.traverse((obj) => {
         if (obj.isMesh) {
           obj.material = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
+            color: 0x000000,
           });
         }
       });
@@ -122,33 +118,44 @@ export default class Sketch {
       uniforms: {
         time: { value: 0 },
         resolution: { value: new THREE.Vector4() },
-        cameraNear: { value: this.camera.near },
-        cameraFar: { value: this.camera.far },
+        cameraNear: { value: this.postCamera.near },
+        cameraFar: { value: this.postCamera.far },
         depthInfo: { value: null },
         ttt: { value: 0 },
       },
       fragmentShader: fragment,
       vertexShader: vertex,
-      side: THREE.DoubleSide,
+      // side: THREE.DoubleSide,
       // wireframe: true,
     });
-    this.geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
+    this.geometry = new THREE.PlaneGeometry(2, 2, 200, 200);
 
     this.plane = new THREE.Mesh(this.geometry, this.material);
-    this.postScene.add(this.plane);
+    // this.plane.position.set(0, 0, 2);
+    // this.scene.add(this.plane);
 
     // Lines
-    // let number = 20;
-    // this.lineGeometry = new THREE.PlaneGeometry(1, 0.01, 100, 1);
+    for (let i = 0; i <= 100; i++) {
+      this.lineGeometry = new THREE.PlaneGeometry(2, 0.005, 300, 1);
 
-    // for (let i = 0; i < number; i++) {
-    //   let mesh = new THREE.Mesh(this.lineGeometry, this.material);
+      let y = [];
+      let length = this.geometry.attributes.position.array.length;
 
-    //   mesh.position.y = (i - number / 2) / number;
+      for (let j = 0; j < length / 3; j++) {
+        y.push(i / 100);
+      }
 
-    //   this.scene.add(mesh);
-    // }
+      this.lineGeometry.setAttribute(
+        'y',
+        new THREE.BufferAttribute(new Float32Array(y), 1)
+      );
 
+      this.lineMesh = new THREE.Mesh(this.lineGeometry, this.material);
+      this.lineMesh.position.y = (i - 50) / 50;
+      this.scene.add(this.lineMesh);
+    }
+
+    // Texture
     this.target = new THREE.WebGLRenderTarget(this.width, this.height);
     // this.target.texture.format = THREE.RGBAFormat;
     this.target.texture.minFilter = THREE.NearestFilter;
@@ -161,23 +168,25 @@ export default class Sketch {
   }
 
   render() {
-    this.time += 0.05;
+    this.time += 0.5;
     this.material.uniforms.time.value = this.time;
     window.requestAnimationFrame(this.render.bind(this));
 
+    if (this.model) {
+      this.model.position.z = -1.6 + 0.2 * Math.sin(this.time / 50);
+      this.model.rotation.z = -0.1 + 0.2 * Math.sin(this.time / 50);
+    }
+
     // render scene into target
     this.renderer.setRenderTarget(this.target);
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.postCamera);
 
     this.material.uniforms.ttt.value = this.target.texture;
     this.material.uniforms.depthInfo.value = this.target.depthTexture;
 
     this.renderer.setRenderTarget(null);
-    this.renderer.render(this.postScene, this.postCamera);
-
-    // let temp = this.target;
-    // this.target = this.target1;
-    // this.target1 = temp;
+    this.renderer.clear();
+    this.renderer.render(this.scene, this.camera);
   }
 }
 
